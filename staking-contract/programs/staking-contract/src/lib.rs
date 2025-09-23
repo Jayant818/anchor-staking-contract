@@ -6,8 +6,6 @@ const POINTS_PER_DAY:u64 = 1_000_000;
 const LAMPORTS_PER_SOL:u64 = 1_000_000_000;
 const SECONDS_PER_DAY:u64 = 86_400;
 
-
-
 #[program]
 pub mod staking_contract{
 
@@ -155,30 +153,6 @@ pub mod staking_contract{
 
         Ok(())
     }
-
-    // pub fn get_points(context: Context<GetPoints>) -> Result<()> {
-    //     let pda_account = &context.accounts.pda;
-    //     let clock = Clock::get()?;
-    
-    //     // elapsed time since last update
-    //     let time_elapsed = clock.unix_timestamp
-    //         .checked_sub(pda_account.last_update_time)
-    //         .ok_or(StakeError::InvalidTimestamp)? as u64;
-    
-    //     let new_points = calculate_points_earned(pda_account.staked_amount, time_elapsed)?;
-    
-    //     let current_total_points = pda_account.total_points
-    //         .checked_add(new_points)
-    //         .ok_or(StakeError::Overflow)?;
-    
-    //     msg!(
-    //         "Current points: {}, Staked amount: {} SOL",
-    //         current_total_points / 1_000_000,
-    //         pda_account.staked_amount / LAMPORTS_PER_SOL
-    //     );
-    
-    //     Ok(())
-    // }
     
 }
 
