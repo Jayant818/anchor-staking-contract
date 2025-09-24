@@ -39,7 +39,11 @@ pub mod staking_token_contract{
 
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
-        set_authority(cpi_ctx, anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType::MintTokens, Some(program_auth.key()))?;
+        set_authority(
+            cpi_ctx, 
+            anchor_spl::token_interface::spl_token_2022::instruction::AuthorityType::MintTokens, 
+            Some(program_auth.key())
+        )?;
 
         Ok(())
     }
@@ -112,14 +116,15 @@ pub mod staking_token_contract{
         let user_info = &mut ctx.accounts.user_info;
         let user_ata = &ctx.accounts.user_ata;
         let token_mint = &ctx.accounts.token_mint;
-        let mint_auth = &ctx.accounts.mint_auth;
+        // have the authority of vault
+        let pgm_auth = &ctx.accounts.mint_auth;
         let token_pgm = &ctx.accounts.token_pgm;
         let vault = &ctx.accounts.vault;
 
         let rewards = calculate_reward(user_info, &pgm_info, clock.slot)?;
 
         if rewards>0 {
-            mint_reward(rewards, token_mint, user_ata, mint_auth, pgm_info, token_pgm)?;
+            mint_reward(rewards, token_mint, user_ata, pgm_auth, pgm_info, token_pgm)?;
         }
 
         let amount_to_unstake = user_info.amount;
@@ -128,16 +133,16 @@ pub mod staking_token_contract{
 
         // CPI To transfer token also need to send the seeds
 
-        let bump = &[pgm_info.vault_bump];
+        let bump = &[pgm_info.auth_bump];
 
         let seeds = &[
-            b"vault".as_ref(), 
-            pgm_info.token_mint.as_ref(),
+            b"auth".as_ref(), 
             bump
         ][..];
 
+        // Here we are transferring token from our vault to another ata
         let cpi_acccounts = Transfer{
-            authority: mint_auth.to_account_info(),
+            authority: pgm_auth.to_account_info(),
             from:vault.to_account_info(),
             to: user_ata.to_account_info(),
         };
@@ -169,11 +174,14 @@ pub mod staking_token_contract{
         let token_pgm = &ctx.accounts.token_pgm;
         let token_mint = &ctx.accounts.token_mint;
 
-        let rewards = calculate_reward(user_info, pgm_info, clock.slot)?;
+        let mut rewards = calculate_reward(user_info, pgm_info, clock.slot)?;
+
+        msg!("Hardcoded rewards: {}", rewards);
         
         require!(rewards>0,StakeError::ZeroAMount);
 
         mint_reward(rewards, token_mint, user_ata, mint_auth, pgm_info, token_pgm)?;
+        msg!("Rewards minted successfully!");
 
         user_info.deposit_slot = clock.slot;
         user_info.reward_debt = 0;
@@ -207,6 +215,10 @@ fn mint_reward<'info>(
     token_program: &Interface<'info,TokenInterface>,
 )->Result<()>{
 
+    msg!("mint_reward called with amount: {}", amount);
+    msg!("Minting to account: {}", to.key());
+    msg!("Using authority: {}", authority.key());
+
 //  Cpi Call karni hai - Pda has authority so have to pass the Seeds 
     let bump = &[program_info.auth_bump];
     let signer_seeds = &[&[
@@ -224,7 +236,9 @@ fn mint_reward<'info>(
 
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
 
+    msg!("About to call mint_to with amount: {}", amount);
     mint_to(cpi_ctx, amount)?;
+    msg!("mint_to completed successfully");
 
 
     Ok(())
@@ -322,6 +336,7 @@ pub struct Stake<'info>{
             user.key().as_ref()
         ],
         bump
+
     )]
     pub user_info : Account<'info,UserInfo>,
 
@@ -362,6 +377,7 @@ pub struct Stake<'info>{
 
 #[derive(Accounts)]
 pub struct UnStake<'info>{
+    /// CHECK: 
     #[account(mut)]
     pub user:Signer<'info>,
 
